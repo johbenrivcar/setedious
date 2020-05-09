@@ -1,3 +1,9 @@
+# module-soecific
+*.bat
+DBTest.js
+
+
+
 # Logs
 logs
 *.log

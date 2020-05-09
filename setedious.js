@@ -8,7 +8,7 @@
         connect: connect
         , on: onEvent 
         , onEvent: onEvent
-        , onDataSet: onDataset
+        , onDataset: onDataset
         , execSql: execSql
         , verbose: false
         , log: console.log
@@ -182,8 +182,7 @@
             }
         );
         
-        // request.CXWDB_setNumber = 0;
-        // request.CXWDB_sets = sets;
+        // =--------------------------------------------=======
         // The event handler to be called for each row returned
         // By convention, the first column is [setname] and the
         // value in this column identifies the set into which to
@@ -195,7 +194,12 @@
                 setName = col0.value; 
             } 
             // Check that the set array has been defined
-            if( !sets[setName] ) sets[setName] = [];
+            if( !sets[setName] ) { 
+                sets[setName] = [];
+                if( params.includeMetadata ){
+                    sets[setName].push( getMetadataRow( rowOfCols ) );
+                }
+            }
 
             // Convert the given row into our standard row object
             let oRow = convertRowToObject( rowOfCols );
@@ -207,26 +211,6 @@
 
             
         })
-
-        // request.on('doneInProc',function(rowCount, more, rows){
-        //     request.CXWDB_setNumber++ ;
-        //     // Now process the actual callback
-        //     // log( `Calling back after exec is complete, more=${more}`);
-        //     // let resultSet = { setNumber : request.CXWDB_setNumber };
-            
-        //     // switch ( config.options.useColumnNames ) {
-        //     //     case true:
-        //     //         resultSet.rows = rows;
-        //     //         break;
-        //     //     default: 
-        //     //         resultSet.rows = convertRowsToObjects(rows);
-        //     //         break;
-        //     // }
-        //     // callback( null, rowCount, resultSet );
-        //     // log( `callback done!`)
-        // });
-
-        // check that there is a free connection
 
         requestQueue.push( request );
         verbLog( `Added request to request queue, length=[${requestQueue.length}]`)
@@ -323,6 +307,14 @@
         return ro;
     }
 
+    function getMetadataRow( row ){
+        ro={};
+        row.forEach( (col, ix)=>{
+            let colName = col.metadata.colName;
+            if( ix > 0 || colName.toLowerCase() != "setname" ) ro[colName + "_" ]=col.metadata;
+        })
+        return ro;
+    }
     function coreLog( ...args ){
         log( "setedious", ...args );
     }

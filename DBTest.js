@@ -11,7 +11,7 @@ const DBService = require( "./setedious" );
 DBService.connect( {
         connectionPoolLimit: 10
         
-        , includeMetadata: false 
+        , includeMetadata: true 
 
         , tedious: {
             server: "DESDEMONA"
@@ -31,12 +31,14 @@ DBService.connect( {
 )
     
 
-DBService.onResultSet( "TOI", function( set , count ){
+DBService.onDataset( "TOI", function( set , count ){
     log( `TOI set collected from #[${count}] with ${set.length} rows!!`)
+    log( set[0] );
 })
 
-DBService.onResultSet( "xxx", function( set , count ){
-    log( `XXX set collected from #[${count}]  with ${set.length} rows!!`)
+DBService.onDataset( "PSN", function( set , count ){
+    log( `PSN set collected from #[${count}]  with ${set.length} rows!!`)
+    log( set[0] );
 })
 
 function readData(){
@@ -44,12 +46,12 @@ function readData(){
     let sql = " SELECT 'TOI' AS setName, TOI.* FROM dbo.tfTableOfIntegers(1, 10) TOI; SELECT 'PSN' AS setName, PSN.* FROM PSN_Person PSN; EXEC TESTPROC @from=20, @to=100;"
     //let sql = "select * from dbo.tfTableOfIntegers(1, 10);"
     ++execCount;
-    DBService.exec( sql , null, execCount ); //, ProcessResultSets, ++execCount );
+    DBService.execSql( sql , null, execCount ); //, ProcessResultSets, ++execCount );
     ++execCount;
-    DBService.exec( sql , null, execCount ); //, ProcessResultSets, ++execCount );
+    DBService.execSql( sql , null, execCount ); //, ProcessResultSets, ++execCount );
    
     //DBService.exec( sql, ProcessResultSets );
-    setTimeout( readData, 10 );
+    //setTimeout( readData, 10 );
 }
 
 //DBService.on( "ready" , readData );
