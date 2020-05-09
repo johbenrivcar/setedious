@@ -9,7 +9,7 @@
         , on: onEvent 
         , onEvent: onEvent
         , onDataSet: onDataset
-        , exec: execSql
+        , execSql: execSql
         , verbose: false
         , log: console.log
     }
