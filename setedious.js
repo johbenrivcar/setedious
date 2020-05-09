@@ -8,8 +8,8 @@
         connect: connect
         , on: onEvent 
         , onEvent: onEvent
-        , onResultSet: onResultSet
-        , exec: exec
+        , onDataSet: onDataset
+        , exec: execSql
         , verbose: false
         , log: console.log
     }
@@ -124,7 +124,7 @@
     // ====================================================================
     // PUBLIC FUNCTIONS
     // ====================================================================
-    function exec( sql, callback, context ){
+    function execSql( sql, callback, context ){
         
         verbLog(`>> exec( [${sql}] )`);
 
@@ -291,7 +291,7 @@
         verbLog(`<<onEvent`);
     }
 
-    function onResultSet( setName, handler ){
+    function onDataset( setName, handler ){
         if( !onResultSetHandlers[setName] ) onResultSetHandlers[setName] = [];
         onResultSetHandlers[setName].push( handler );
 
