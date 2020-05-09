@@ -1,0 +1,28 @@
+{
+  "name": "setedious",
+  "version": "1.0.0",
+  "description": "An async wrapper for [tedious] that returns named data sets",
+  "main": "setedious.js",
+  "dependencies": {
+    "tedious": "^8.3.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"No test specified\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/johbenrivcar/setedious.git"
+  },
+  "keywords": [
+    "tedious",
+    "nodejs",
+    "dataset"
+  ],
+  "author": "johbenrivcar",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/johbenrivcar/setedious/issues"
+  },
+  "homepage": "https://github.com/johbenrivcar/setedious#readme"
+}
