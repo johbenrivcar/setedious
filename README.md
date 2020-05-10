@@ -25,7 +25,7 @@ Basic features
     
     // Handler used whenever dataset with specific name is returned
     function logSet( dataSet ){
-        console.log( `dataSet ${dataSet.key[0]} has been returned` );
+        console.log( `dataSet ${dataSet.setName} has been returned` );
     }
 
     // create and submit the SQL, with handler for returned dataset

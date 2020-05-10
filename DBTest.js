@@ -32,13 +32,15 @@ DBService.connect( {
     
 
 DBService.onDataset( "TOI", function( set , count ){
-    log( `TOI set collected from #[${count}] with ${set.length} rows!!`)
-    log( set[0] );
+    let ds = set.TOI;
+    log( `TOI set collected from SQLQuery#[${count}] with ${ds.length} rows!!`)
+    log( set.setName, ds );
 })
 
 DBService.onDataset( "PSN", function( set , count ){
-    log( `PSN set collected from #[${count}]  with ${set.length} rows!!`)
-    log( set[0] );
+    let ds = set.PSN
+    log( `PSN set collected from SQLQuery#[${count}]  with ${ds.length} rows!!`)
+    log(  set.setName, ds  );
 })
 
 function readData(){

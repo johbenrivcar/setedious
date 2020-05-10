@@ -169,7 +169,10 @@
                     let handlers = onResultSetHandlers[setName]
                     if( handlers ){
                         handlers.forEach( handler =>{
-                            handler( sets[setName] , context );
+                            let xo = { };
+                            xo[setName] = sets[setName] ;
+                            xo.setName = setName;
+                            handler( xo, context );
                         });
                     };
                 });
@@ -335,3 +338,142 @@
         if( !ddd ) ddd = new Date();
         return ddd.toISOString().substr(11,8);
      }
+
+     
+// ========================================================================================== simpleClone
+
+function simpleClone( pObject, excludeKey = "", depth = 1 ){
+    // TODO This does not handle arrays! ??
+    if( depth == 1 ) console.log( "CLONING", pObject )
+
+
+    if( depth > 10 ) return "[TOO DEEP]";
+    if( !pObject ) return null;
+    
+    if( Array.isArray( pObject ) ){
+        let newA = [];
+        pObject.forEach( item=>{
+            let xo = simpleClone( item, excludeKey, depth+1 );
+            if( xo ) newA.push( xo );
+        })
+        if ( depth == 1) console.log( "RETURNING CLONE" , newA )
+        return newA;
+
+    } else if ( pObject instanceof Date ) { 
+        return new Date( pObject );
+    } else if ( pObject instanceof Function ) {
+        return null;
+    } else {
+        newO = {};
+        var keys = Object.keys( pObject );
+        keys.forEach( K => {
+            if( K != excludeKey )
+            if( K.substr( -1 )!="_" ) {
+            //if( K != "__proto__")
+                let po = pObject[K];
+                if(  po instanceof Function  ) { return; } 
+                else if( po instanceof Date ) { newO[K] = new Date( po ) }
+                else if( typeof po == "object" || Array.isArray( po ) ) { 
+                    let xo = simpleClone ( po, excludeKey, depth+1 ) 
+                    if( xo ) newO[K] = xo
+                } else newO[K] = po;
+            }
+            return;
+        })
+
+        if ( depth == 1) console.log( "RETURNING CLONE" , newO )
+
+        if ( Object.keys( newO ).length == 0 && depth > 1 ) return null;
+        return newO;
+    }
+
+}
+
+// ========================================================================================== util_preprocessJSON
+/**
+ * Takes an object or any item that has been constructed using JSON.parse(), and converts all data
+ * items whose string values can be represented as valid JS types. The data values are changed in situ
+ * if the top-level entry is an object, and the converted value/object is also returned.
+ * @param {*} entry 
+ */
+function preprocessJSON( entry ){
+    //console.log( "preprocessing", entry);
+    // Pre-process the body to convert text values that are numbers, boolean
+    // or dates into corresponding types.
+    if( typeof entry === "string" ) return stringToElementaryType( entry );
+    
+    // Maybe it is an (array or object )
+    if( typeof entry === "object" ){
+
+        // forEach method indicates an array
+        if( entry.forEach ){
+            try { 
+                entry.forEach( (item, index)=>{
+                        entry[index] = preprocessJSON( item );
+                    })
+                return entry;
+
+            } catch (e) {
+                console.error( e )
+                return null;
+            };
+
+        }
+        
+        // otherwise try it out as an object
+        for( let [key, value] of Object.entries( entry )){
+            entry[key] = preprocessJSON( value )
+        }
+    }
+
+
+    return entry;
+
+}
+
+    // ======================================================================================================= stringToElementaryType
+    function checkInt(xx){
+        let int_regexp = /^[0-9]+$/g                 // regular expression to check integer value
+        return int_regexp.test( xx )
+    }
+    function checkFlt(xx){
+        let flt_regexp = /^[0-9]+\.[0-9]+$/g         // regular expression to check for decimal (n.n) value
+        return flt_regexp.test( xx );
+    }
+    /**
+     * Recasts a string as one of the javascript basic types, by checking convertibility. If no
+     * conversion is possible returns the string. Types are Integer, Number (Float), Boolean and Date
+     * @param {*} xxx String to be converted to an elementary type if possible.
+     */
+    function stringToElementaryType( xxx ){
+        //console.log( "string", typeof xxx , xxx)
+        if ( xxx.length > 0 ) {
+
+            // most likely to be a number, so try that first
+            if(checkInt( xxx )){ //console.log( "..>INT"); 
+                return parseInt( xxx ); }
+            if(checkFlt( xxx )){ //console.log( "..>FLT"); 
+                return parseFloat( xxx ); }
+
+            
+            // Try for boolean values
+            if ( xxx === "true" ) {//console.log( "true" );  
+                return true;}
+            if ( xxx === "false" ) {//console.log( "false" );  
+                return false;}
+
+            // try a date
+            // let dd = null;
+            // try { 
+            //     dd = new Date( str );
+            //     if( dd ) return dd
+            // } catch(e) {};
+            
+        }
+        // can't do anything, so just return the string;
+        //console.log( "..>str")
+        return xxx;
+    }
+
+// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
