@@ -5,7 +5,7 @@ Basic features
 * Simple submission of SQL statements with a callback:
     
         setedious.execSql( sqlStatement, callback );
-    *The callback receives a single object containing all the datasets created by the SQL statement*
+    *The callback receives a single object containing all the datasets created by the SQL statement, including all datasets selected with stored procedure calls*
 
 * Events to catch datasets with specific names whenever returned
     
@@ -46,9 +46,11 @@ To correctly allocate returned data rows to a named dataSet, the first column of
  * If no set name is given, then the name defaults to **dataSet**. 
 * If multiple SQL statements in a single request return rows with the **same** *setName* then all the rows returned from those SQL statements are concatenated in a single dataset. This is similar to a SQL *UNION* statement.
 * If different rows returned from a single SQL statement have different *setNames* then the rows will be separated into multiple dataSets with different names. This means you can allocate the value of the *setName* as part of a single SQL statement to separate the returned data into different dataSets.
+* The *setName* column is removed from the dataset before it is returned to the callback function.
+* Any field in the database that has a name ending with the string *_json* is parsed to a js object before being returned in the dataset, and the *_json* suffix is removed from the column name.
 
 ### connection options
-options supplied to the connect function as an object with this structure:
+options supplied to the *connect()* function must be an object with this structure - see below for meaning of each option:
 
     {
         connectionPoolLimit: 10
@@ -71,7 +73,7 @@ options supplied to the connect function as an object with this structure:
 
 The meanings of the connection options are:
 * connectionPoolLimit
-    * *Default: 5*. The maximum allowed number of simultaneous connections to the database. **setedious** automatically opens additional connections to the database if *execSql()* is called when all the existing connections are already busy. This might mean that more connections are opened than should be. However if set too low to handle the volume of requests for the application, this may result in a large queue of SQL requests waiting to be executed - see *Request queueing* below.
+    * *Default: 10*. The maximum allowed number of simultaneous connections to the database held in the connection pool. While the number of connections is below the limit, **setedious** automatically opens additional connections to the database if *execSql()* is called when all the existing connections are already busy with earlier requests. Without a limit this could mean that more connections are opened than is desirable, for example if occasional bursts of calls are made in quick succession. However if the limit is set too low to handle the general volume of requests for the application, this may result in a large queue of SQL requests buiding up - see *Request queueing* below.
 * includeMetadata
     * *Default: false*. If set to **true**, then per-field metadata is included in the returned dataset as separate fields in the *first row of the dataset only*. Each metadata field is named with a trailing underscore after the field name to which it relates. The first row of the dataset that contains actual data is the second row. *If no rows are returned, then no metadata is returned either*.
 * tedious
@@ -79,3 +81,16 @@ The meanings of the connection options are:
         * opt.rowCollectionOnDone - ignored
         * opt.useColumnNames - overridden to **true**: column names are always used as field names in the returned dataSet
         * opt.rowCollectionOnRequestCompletion - ignored
+## Request queueing
+**setedious** maintains a pool of connections to the database which are used to dispatch *execSql()* in order of arrival. If a call is made to *execSql* when there are no free connections available, because earlier calls have used them up and the results have not yet been returned, then **setedious** initiates opening a new connection.
+
+While a new connection is pending, no further new connection requests are made, even if further calls to *execSql* are received.
+
+As soon as either a) one of the previously-occupied connections is freed or b) a new connection request is fulfilled, then the longest-waiting *execSql()* request is dispatched from the queue.
+
+If the connection limit has been reached (options.connectionPoolLimit) than no further new connections to the database will be requested, and queued requests must wait for the existing connections to be freed up.
+
+## Error handling
+Errors are handled by the creation of an ERROR dataset, which is then delivered to handlers that have been registered by either *setedious.on( "ERROR", handler )* or *setedious.onError( handler )*.
+
+Note that any dataset with the setName **ERROR**, whenever received, will be passed to these handlers. This means that error datasets can be returned from within stored procedures and these will be sent to the registered error handler functions. Further, if an ERROR dataset is returned as a result of a call to *execSql()* then this dataset will also be returned as the first, **err** parameter of the callback for that specific call, if any.

@@ -1,17 +1,20 @@
+const fs = require( "fs" );
+let logfile = fs.openSync( "./logs/DBTest.log", "w" );
+const log = logToDisk ; //console.log;
+const util = require("util");
 
-const log = console.log;
-
+log( (new Date() ).toISOString() );
 var execCount = 0
 
 log( "Starting DBTest ");
 
 
-const DBService = require( "./setedious" );
-
-DBService.connect( {
+const setedious = require( "./setedious" );
+//setedious.verbose = true;
+setedious.connect( {
         connectionPoolLimit: 10
         
-        , includeMetadata: true 
+        , includeMetadata: false 
 
         , tedious: {
             server: "DESDEMONA"
@@ -31,13 +34,13 @@ DBService.connect( {
 )
     
 
-DBService.onDataset( "TOI", function( set , count ){
-    let ds = set.TOI;
-    log( `TOI set collected from SQLQuery#[${count}] with ${ds.length} rows!!`)
+setedious.onDataset( "SSM", function( set , count ){
+    let ds = set.SSM;
+    log( `SSM set collected from SQLQuery#[${count}] with ${ds.length} rows!!`)
     log( set.setName, ds );
 })
 
-DBService.onDataset( "PSN", function( set , count ){
+setedious.onDataset( "PSN", function( set , count ){
     let ds = set.PSN
     log( `PSN set collected from SQLQuery#[${count}]  with ${ds.length} rows!!`)
     log(  set.setName, ds  );
@@ -45,15 +48,18 @@ DBService.onDataset( "PSN", function( set , count ){
 
 function readData(){
     
-    let sql = " SELECT 'TOI' AS setName, TOI.* FROM dbo.tfTableOfIntegers(1, 10) TOI; SELECT 'PSN' AS setName, PSN.* FROM PSN_Person PSN; EXEC TESTPROC @from=20, @to=100;"
-    //let sql = "select * from dbo.tfTableOfIntegers(1, 10);"
+    let sql = " SELECT 'SSM' AS setName, SSM.* FROM SSM_SessionMaster SSM; SELECT 'PSN' AS setName, PSN.* FROM PSN_Person PSN; EXEC TESTPROC @from=20, @to=100;"
+    
     ++execCount;
-    DBService.execSql( sql , null, execCount ); //, ProcessResultSets, ++execCount );
+    setedious.execSql( sql , null, execCount ); //, ProcessResultSets, ++execCount );
     ++execCount;
-    DBService.execSql( sql , null, execCount ); //, ProcessResultSets, ++execCount );
-   
+    sql = `EXEC getSessionData @sessionCode='oasduriaosdfu';` ;
+    setedious.execSql( sql , function( err, session ){
+        log( "Session:", session );
+    } ); //, ProcessResultSets, ++execCount );
+    
     //DBService.exec( sql, ProcessResultSets );
-    //setTimeout( readData, 10 );
+    setTimeout( readData, 10 );
 }
 
 //DBService.on( "ready" , readData );
@@ -83,3 +89,13 @@ function ProcessResultSets( err, resultSets, id){
 
 }
 
+
+function logToDisk( ...args ){
+    console.log( ...args );
+    let rec="";
+    args.forEach( arg=>{
+        rec += "|+| " + util.inspect( arg );
+    })
+    fs.writeSync(logfile, rec + "\n", "utf8");
+
+}
