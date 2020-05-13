@@ -12,9 +12,14 @@ Basic features
         setedious.onDataset( datasetName, callback );
     *The callback receives an object containing the a dataset whenever that named dataset is returned by any submitted SQL statement*
     
+## installation
+Node.js is a prerequisite of setedious. To install setedious in a project use:
+
+    > npm install setedious
+
+setedious has a dependency on *tedious* which will also be installed if required.
 
 ## usage example
-
     // load module and make connection to the database
     const setedious = require( `setedious` );
     setedious.connect( connectOptions );
@@ -25,10 +30,14 @@ Basic features
         console.log( dataSet.myNamedSet );
     });
 
+The above handler will be called whenever any sql statement submitted to setedious returns a dataset named "myNamedSet".
+
     // create and submit the SQL, with handler for all datasets
     let sql = "SELECT 'myNamedSet' setName, * FROM myTable;"
              + " SELECT 'anotherSet' setName, * FROM anoTable; ";
     
+The above SQL statement will return two datasets, named "myNamedSet" and "anotherSet". Empty datasets are not returned.
+
     // execute both select statements and collect the returned
     // datasets in a callback.
     setedious.execSQL( sql , (err, allDataSets )=>{
@@ -37,6 +46,9 @@ Basic features
         }
         console.log("All data sets", allDataSets );
     });
+
+The above js statement will execute the SQL, and return the datasets back to the callback. If a dataset with the name ERROR is returned from the call, that will be returned in the parameter err.
+
 
 ### setName column in SQL statements
 To correctly allocate returned data rows to a named dataSet, the first column of a result set must be named **setName** and be set to the string name of the dataset:

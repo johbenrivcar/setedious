@@ -105,10 +105,10 @@ const onResultSetHandlers = {};
 function newConnectionMade( err, newCNX ){
     verbLog( ">> newConnectionMade" );
     if( err ){
-        coreLog( "Error attempting to connect:", err)
+        coreLog( "Error attempting to connect to database:", err)
         bError =  true;
-        errData = err;
-        doCallbacks( onEvents.error, err );
+        errData = { setName: "ERROR", ERROR: [ err ] };
+        doCallbacks( onEvents.error, errData );
         verbLog( "<< newConnectionMade" );
         return;
     }
@@ -161,7 +161,7 @@ function execSql( sql, callback, context ){
             verbLog( `Exec fininished for [${sql}]`)
 
             if( err ){ 
-                    coreLog(`--- ERROR REPORTED ON EXEC [${sql}] `, err );
+                    verbLog(`--- ERROR REPORTED ON EXEC [${sql}] `, err );
                     errObj = { setName: "ERROR", ERROR: [ err ] }
                     if( callback ) callback( errObj ); 
                     errData = errObj; 
@@ -181,7 +181,7 @@ function execSql( sql, callback, context ){
             let cnxx = request.XWDB_connection;
             cnxx.reset( function( err ){ 
                     if( err ){
-                        coreLog(`--- ERROR Connection reset failed`, err )
+                        verbLog(`--- ERROR Connection reset failed`, err )
                         try{
                             cnxx.close();
                         } catch(e){};
@@ -190,7 +190,7 @@ function execSql( sql, callback, context ){
                         verbLog( `Check of request queue has been scheduled`)
                         return ;
                     }
-                    coreLog( "CONNECTION RESET SUCCESSFULLY");
+                    verbLog( "CONNECTION RESET SUCCESSFULLY");
                     connectionPool.push( cnxx );
                     verbLog( `Connection returned into pool, length is now [${connectionPool.length}]`);
                     setTimeout( checkRequestQueue, 1 );
