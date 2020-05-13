@@ -58,13 +58,19 @@ To correctly allocate returned data rows to a named dataSet, the first column of
     SELECT "PERSONS" setName, * FROM T_PERSONS;
 **NOTES**
  * If there is no setName column, then the set name defaults to **dataSet**. 
-* If multiple SQL statements in a single request return rows with the **same** *setName* then all the rows returned from those SQL statements are concatenated in a single dataset.
-* If different rows returned from a single SQL statement have a different *setName*, then the rows will be separated into multiple dataSets with different names. This means you can allocate the value of the *setName* as part of a single SQL statement to separate the returned data into different dataSets.
+* If multiple SQL statements in a single request return rows with the **same** *setName* then all the rows returned from those SQL statements are concatenated in a single dataset. For example, this SQL will return a single dataset named **PLANES** containing all records from both tables, monoplanes first then biplanes:
+
+        let sql = " SELECT 'PLANES' setName, * FROM t_MonoPLANES ORDER BY name; SELECT 'PLANES' setName, * FROM t_BiPLANES ORDER BY name;"
+
+* If different rows returned from a single SQL statement have a different *setName*, then the rows will be separated into multiple dataSets with different names. This means you can allocate the value of the *setName* as part of a single SQL statement to separate the returned data into different dataSets. For example, this SQL will return two datasets, one ADULTS and one named KIDS:
+
+        let sql = " SELECT CASE WHEN age>=18 THEN 'ADULTS' ELSE 'KIDS' END setName, * FROM tAllPeople; "
+
 * The *setName* column is removed from the dataset before it is returned to the callback function.
 * Any field in the database that has a name ending with the string *_json* is parsed to an object using *JSON.parse()* before being returned in the dataset, and the *_json* suffix is removed from the column name. The original JSON text is also included.
 
 ### connection options
-options supplied to the *connect()* function must be an object with this structure - see below for the meaning of each option:
+options supplied to the *connect()* function must be an object with this structure:
 
     {
         connectionPoolLimit: 10
@@ -89,12 +95,13 @@ The meanings of the connection options are:
 * connectionPoolLimit
     * *Default: 10*. The maximum allowed number of simultaneous connections to the database held in the connection pool. While the number of connections is below the limit, **setedious** automatically opens additional connections to the database if *execSql()* is called when all the existing connections are already busy with earlier requests. Without a limit this could mean that more connections are opened than is desirable, for example if occasional bursts of calls are made in quick succession. However if the limit is set too low to handle the general volume of requests for the application, this may result in a large queue of SQL requests buiding up - see *Request queueing* below.
 * includeMetadata
-    * *Default: false*. If set to **true**, then per-field metadata is included in the returned dataset as separate fields in the *first row of the dataset only*. Each metadata field is named with a trailing underscore after the field name to which it relates. The first row of the dataset that contains actual data is the second row. *If no rows are returned, then no metadata is returned either*.
+    * *Default: false*. If set to **true**, then per-field *type metadata* is included in the returned dataset as separate fields in each dataset row. Each metadata field is named with the suffix *_type* after the field name to which it relates. 
 * tedious
-    * This section contains the options passed to **tedious** to establish a database connection - see **tedious** documentation for details. **NOTE:** Some **tedious** options are not available:
-        * opt.rowCollectionOnDone - ignored
-        * opt.useColumnNames - overridden to **true**: column names are always used as field names in the returned dataSet
-        * opt.rowCollectionOnRequestCompletion - ignored
+    * This section contains the options passed to **tedious** to establish a database connection - see **tedious** documentation for details. 
+        * **NOTE:** These **tedious** options are not available:
+            * *rowCollectionOnDone* 
+            * *useColumnNames* - column names are always used as keys in the rows of the returned dataSet
+            * *rowCollectionOnRequestCompletion* 
 ## Request queueing
 **setedious** maintains a pool of connections to the database which are used to dispatch *execSql()* in order of arrival. If a call is made to *execSql* when there are no free connections available, because earlier calls have used them up and the results have not yet been returned, then **setedious** initiates opening a new connection, which is added to the pool.
 
