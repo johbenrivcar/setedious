@@ -3,14 +3,14 @@ let logfile = fs.openSync( "./logs/DBTest.log", "w" );
 const log = logToDisk ; //console.log;
 const util = require("util");
 
-log( (new Date() ).toISOString() );
-var execCount = 0
 
-log( "Starting DBTest ");
+log( "Starting DBTest at",  (new Date() ).toISOString() );
 
 
 const setedious = require( "./setedious" );
-//setedious.verbose = true;
+setedious.verbose = false;
+setedious.log = logToDisk;
+
 setedious.connect( {
         connectionPoolLimit: 10
         
@@ -36,58 +36,66 @@ setedious.connect( {
 
 setedious.onDataset( "SSM", function( set , count ){
     let ds = set.SSM;
-    log( `SSM set collected from SQLQuery#[${count}] with ${ds.length} rows!!`)
+    log( `SSM set collected with ${ds.length} rows`)
+    log( set.setName, ds );
+})
+
+setedious.onDataset( "SPPARAM", function( set , count ){
+    let ds = set.SPPARAM;
+    log( `SPPARAM set collected with ${ds.length} rows`)
     log( set.setName, ds );
 })
 
 setedious.onDataset( "PSN", function( set , count ){
-    let ds = set.PSN
-    log( `PSN set collected from SQLQuery#[${count}]  with ${ds.length} rows!!`)
-    log(  set.setName, ds  );
+    let ds = set.PSN;
+    log( `PSN set collected with ${ds.length} rows`)
+    log( set.setName, ds );
 })
 
-function readData(){
+setedious.onDataset( "GRP", function( set , count ){
+    let ds = set.GRP;
+    log( `GRP set collected with ${ds.length} rows`)
+    log( set.setName, ds );
+})
+
+setedious.onDataset( "ERROR", function( set , context ){
+    let ds = set.ERROR
+    log( `ERROR set  with ${ds.length} rows!!`, ds);
+})
+
+function runTest(){
+/*
+    let sql = " SELECT 'SSM' AS setName, SSM.* FROM SSM_SessionMaster SSM; "
     
-    let sql = " SELECT 'SSM' AS setName, SSM.* FROM SSM_SessionMaster SSM; SELECT 'PSN' AS setName, PSN.* FROM PSN_Person PSN; EXEC TESTPROC @from=20, @to=100;"
-    
-    ++execCount;
-    setedious.execSql( sql , null, execCount ); //, ProcessResultSets, ++execCount );
-    ++execCount;
-    sql = `EXEC getSessionData @sessionCode='oasduriaosdfu';` ;
-    setedious.execSql( sql , function( err, session ){
-        log( "Session:", session );
-    } ); //, ProcessResultSets, ++execCount );
-    
-    //DBService.exec( sql, ProcessResultSets );
-    setTimeout( readData, 10 );
+    setedious.execSql( sql ); 
+
+*/
+
+    // sql = " SELECT 'PSN' setName, PSN.* FROM vPSN_Person PSN ORDER BY PSN.Name ; EXEC sysGetSpParams @SPName='getPerson' ;" ;
+
+    // setedious.execSql( sql ) ;
+
+    // setedious.execSql( "EXEC sysGetSpParams @SPName='getPerson', @Debug=1 ; ", function( err, ds ){
+    //     if( err ){
+    //         log( "ERROR RETURNED", err );
+    //     }
+
+    //     log( "SPPARAMS FOR getPerson", err, ds )
+    // })
+
+    sql = " SELECT TOP(1) 'PSN' setName, PSN.* FROM vPSN_Person PSN ORDER BY PSN.Name ; " ;
+    sql += ` EXEC getPerson @PersonUID='123456789012345' ;`
+    sql +=  " EXEC GetSpParams @SPName='getPerson' ; "
+    sql += " EXEC	[RaiseError] @Msg = 'TEST ERROR', @Enum = -300, @Data_JSON = '{}' ; "
+    sql += ` SELECT TOP(1) 'GRP' setName, GRP.* FROM GRP_Group GRP; `
+    setedious.execSql( sql ) ;
+
 }
 
-//DBService.on( "ready" , readData );
 
-readData();
 
-function ProcessResultSets( err, resultSets, id){
-    log( `>> ProcessResulsteSets [${id}]`)
-    if( err ){
-        log(" ERROR +++++ ", err);
-        return;
-    }
+runTest();
 
-    log( "Read was successful " );
-    
-    let setNames = Object.keys( resultSets );
-
-    setNames.forEach( setName=>{
-        let aSet = resultSets[setName];
-        log( `Reporting resultset ${setName} with ${aSet.length} rows ----------------`)
-        // aSet.forEach( ( row, ix ) =>{
-        //     log( ix, row );
-        //  });
-
-    });
-    
-
-}
 
 
 function logToDisk( ...args ){

@@ -12,6 +12,7 @@ module.exports = {
     , execSql: execSql
     , verbose: false
     , log: console.log
+    , simpleClone: simpleClone
 }
 
 
@@ -31,6 +32,7 @@ var TYPES = require( "tedious" ).TYPES;
 module.exports.TDS_Connection = Connection;
 module.exports.TDS_Request = Request;
 module.exports.TDS_TYPES = TYPES;
+module.exports.simpleClone = simpleClone;
 
 var waitingFreeConnection = false;
 var params = null;
@@ -139,10 +141,14 @@ function newConnectionMade( err, newCNX ){
 // ====================================================================
 function execSql( sql, callback, context ){
     
-    verbLog(`>> exec( [${sql}] )`);
+    verbLog(`>> ***************** execSql  ************  ( [${sql}] )`);
 
-    // Define a variable to hold all the result sets
+    
+    
+    
+    // Define a variable to hold all the result sets for this request
     let sets = {};
+
     // Create the new request to be executed given the SQL statement
     // provided
     let request = new Request(  
@@ -155,7 +161,7 @@ function execSql( sql, callback, context ){
             verbLog( `Exec fininished for [${sql}]`)
 
             if( err ){ 
-                    coreLog(`--- ERROR REPORTED ON EXEC `, err );
+                    coreLog(`--- ERROR REPORTED ON EXEC [${sql}] `, err );
                     errObj = { setName: "ERROR", ERROR: [ err ] }
                     if( callback ) callback( errObj ); 
                     errData = errObj; 
@@ -204,7 +210,7 @@ function execSql( sql, callback, context ){
                         let xo = { };
                         xo.setName = setName;
                         xo[setName] = sets[setName] ;
-                        handler( xo, context );
+                        setTimeout( handler, 0,  xo, context );
                     });
                 };
             });
@@ -219,7 +225,7 @@ function execSql( sql, callback, context ){
                     delete sets.ERROR
                 }
                 verbLog( `Calling back to original requester`)
-                callback( errorSet, sets, context );
+                setTimeout( callback, 0, errorSet, sets, context );
             }
             verbLog( "<< requestComplete" )
 
@@ -232,11 +238,15 @@ function execSql( sql, callback, context ){
     // value in this column identifies the set into which to
     // deliver the rows
     request.on( "row", function( rowOfCols ){
+        verbLog( ">> on_Row")
         let col0 = rowOfCols[0];
         let setName = "DATASET"
         if( col0.metadata.colName.toLowerCase() == "setname" ){
             setName = col0.value; 
         } 
+        verbLog( "---- SETNAME: ", setName )
+
+
         // Check that the set array has been defined
         if( !sets[setName] ) { 
             sets[setName] = [];
@@ -247,7 +257,7 @@ function execSql( sql, callback, context ){
 
         // Convert the given row into our standard row object
         let oRow = convertRowToObject( rowOfCols );
-
+        verbLog( "==== ROW DATA:", oRow )
         //oRow.ResultsetNumber = request.CXWDB_setNumber;
 
         // Add the row object to the set
@@ -414,6 +424,7 @@ function doCallbacks( cbList, ...params ){
  */
 function convertRowToObject( row ){
     ro={};
+    
     row.forEach( (col, ix)=>{
         let colName = col.metadata.colName;
         // check that this is not the setName column
@@ -421,11 +432,13 @@ function convertRowToObject( row ){
             let val = col.value;
 
             if( params.includeMetadata ){
-                ro[ colName + "_" ] = col.metadata;
+                //ro[ colName + "_meta" ] =  col.metadata ;
+                ro[ colName + "_type" ] =  simpleClone( col.metadata.type, "colName" ) ;
             };
 
             // check for json object in this column
             if( colName.substr( -5 ).toLowerCase() === "_json"){
+                ro[colName]=val;
                 if( typeof val == "string" ){
 
                     // try to convert to a javascript object
@@ -488,54 +501,117 @@ function hhmmss( ddd ){
  }
 
  
-// ========================================================================================== simpleClone
+   // ========================================================================================== simpleClone
+    /**
+     * Returns a simplified clone of a given object. The clone excludes any functions and empty objects {}
+     * Objects are cloned to a depth by using the function recursively. 
+     * There is a limit of 10 on the depth of recursion although this can be increased by passing a higher 
+     * number as maxDepth parameter. 
+     * Members of the object may be excluding by providing a regexp that matches the pattern(s) of the 
+     * key(s) to be excluded, or a string that matches a the keys exactly (case-sensitive).
+     * Any key that begins or ends in underscore _ is not cloned and is excluded from the cloned object.
+     * @param {*} pObject 
+     * @param {*} excludeKey 
+     * @param {*} maxDepth 
+     */
+    
+    var underscoreCheck = /(^_|_$)/;
+    function simpleClone( pObject, excludeKey, maxDepth = 10, currentDepth=1 ){
+        // If nothing is given, return null
+        if( !pObject ) return null;
 
-function simpleClone( pObject, excludeKey = "", depth = 1 ){
-// TODO This does not handle arrays! ??
-if( depth == 1 ) console.log( "CLONING", pObject )
+        // If a string, return the string
+        if( typeof pObject === "string" )
+            return pObject;
+        
+        // If a date, return a copy of the date
+        if ( pObject instanceof Date ) 
+            return new Date( pObject );
+    
+        // If a function, return a placeholder for the function with its name for Information only
+        if ( pObject instanceof Function )
+            return `[FUNCTION: ${pObject.name}]`;
+        
+        // If an array, construct a copy of the array
+        if( Array.isArray( pObject ) ){
+            // Empty copy
+            let newA = [];
+            // Check each item in the array, using simpleClone recursively
+            pObject.forEach( item=>{
+                let xo = simpleClone( item, excludeKey, maxDepth, currentDepth+1 );
+                // Even f the returned item is null, push it ( to preserve indexing )
+                newA.push( xo );
+            })
 
+            //if ( maxDepth == 1) console.log( "RETURNING CLONE" , newA )
+            return newA;
+        } 
+    
+        // If an object other than array, then clone the object
+        if ( typeof pObject == "object" ){
+            
+            // If this object is too deep in the hierarchy, then return a placeholder only, (for information)
+            if( currentDepth > maxDepth ) return `[OBJECT NESTING TOO DEEP, Max depth is ${maxDepth}]`;
 
-if( depth > 10 ) return "[TOO DEEP]";
-if( !pObject ) return null;
+            // New empty object
+            let newO = {};
 
-if( Array.isArray( pObject ) ){
-    let newA = [];
-    pObject.forEach( item=>{
-        let xo = simpleClone( item, excludeKey, depth+1 );
-        if( xo ) newA.push( xo );
-    })
-    if ( depth == 1) console.log( "RETURNING CLONE" , newA )
-    return newA;
+            // get all the keys and process them one by one
+            let keys = Object.keys( pObject );
+            keys.forEach( K => {
+                // does the name begin or end with an underscore, if so we do not copy it
+                bExclude = underscoreCheck.test(K);
+                
+                // check if the key matches the exclude pattern first
+                if(!bExclude) if( excludeKey ){
+                    // Is the excludeKey a regex or just a string?
+                    if( excludeKey instanceof RegExp ){
+                        bExclude = excludeKey.test( K );
 
-} else if ( pObject instanceof Date ) { 
-    return new Date( pObject );
-} else if ( pObject instanceof Function ) {
-    return null;
-} else {
-    newO = {};
-    var keys = Object.keys( pObject );
-    keys.forEach( K => {
-        if( K != excludeKey )
-        if( K.substr( -1 )!="_" ) {
-        //if( K != "__proto__")
-            let po = pObject[K];
-            if(  po instanceof Function  ) { return; } 
-            else if( po instanceof Date ) { newO[K] = new Date( po ) }
-            else if( typeof po == "object" || Array.isArray( po ) ) { 
-                let xo = simpleClone ( po, excludeKey, depth+1 ) 
-                if( xo ) newO[K] = xo
-            } else newO[K] = po;
-        }
-        return;
-    })
+                    } else if( typeof excludeKey === "string" ){
+                        bExclude = ( excludeKey == K )
+                    }
+                }
 
-    if ( depth == 1) console.log( "RETURNING CLONE" , newO )
+                // if the key is excluded then do not add it
+                if( bExclude ) return;
+                
+                // Get the value of the Key
+                let po = pObject[K];
 
-    if ( Object.keys( newO ).length == 0 && depth > 1 ) return null;
-    return newO;
-}
+                // If it is a function discard it
+                if(  po instanceof Function  ) { return ; } 
 
-}
+                // If it is a date, put a copy of the date into the object
+                if( po instanceof Date ) { newO[K] = new Date( po ) ; return ; }
+                
+                // If it is an object or an array, then clone it recursively
+                if( typeof po == "object" || Array.isArray( po ) ) { 
+                        // Notice how we increment the depth
+                        let xo = simpleClone ( po, excludeKey, maxDepth, currentDepth+1 ) 
+                        // Check that something was returned from the clone
+                        if( xo ) newO[K] = xo;
+                        // If nothing was returned, then do not set anything on the clone
+                        return;
+                    } 
+                // Whatever it is, just set it on the new object;
+                newO[K] = po;
+                return;
+
+            })
+    
+            // Check if we have an object with no keys, if so do not clone it
+            if ( Object.keys( newO ).length == 0 && currentDepth > 1 ) return null;
+
+            // Return the newly-constructed copy
+            return newO;
+        
+        } 
+        
+        // some other elementary type that we do not need to clone, so just return its value.
+        return pObject;
+    
+    }
 
 // ========================================================================================== util_preprocessJSON
 /**
@@ -579,6 +655,12 @@ return entry;
 
 }
 
+function objectToSQLQuotedJSON( obj ){
+    var strout = obj.stringify( obj );
+    strout = sqlSafeString( strout );
+
+    
+}
 // ======================================================================================================= stringToElementaryType
 function checkInt(xx){
     let int_regexp = /^[0-9]+$/g                 // regular expression to check integer value
@@ -625,3 +707,14 @@ function stringToElementaryType( xxx ){
 
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+/**
+ * Return an object which can be used to build a sql statement to run a stored procedure. The object
+ * allows the addition of parameters to the procedure and returns a promise.
+ */
+function sqlExecProc(){
+
+}
+
+function basicExecProc(){
+
+}
