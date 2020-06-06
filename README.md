@@ -5,12 +5,12 @@ Basic features
 * Simple submission of SQL statements with a callback:
     
         setedious.execSql( sqlStatement, callback );
-    *The callback receives a single object containing all the datasets created by the SQL statement, including all datasets selected with stored procedure calls*
+    *The callback receives a single object containing all the datasets created by the SQL statement, including all datasets selected with stored procedure calls.*
 
 * Events to catch datasets with specific names whenever returned
     
         setedious.onDataset( datasetName, callback );
-    *The callback receives an object containing the a dataset whenever that named dataset is returned by any submitted SQL statement*
+    *The callback receives an object containing the a dataset whenever that named dataset is returned by any submitted SQL statement.*
     
 ## installation
 Node.js is a prerequisite of setedious. To install setedious in a project use:
@@ -24,41 +24,46 @@ setedious has a dependency on *tedious* which will also be installed if required
     const setedious = require( `setedious` );
     setedious.connect( connectOptions );
 
-    // register a handler called whenever "myNamedSet" is returned
-    setedious.onDataset( "myNamedSet", dataSet=>{
-        console.log( `dataSet 'myNamedSet' has been returned` );
-        console.log( dataSet.myNamedSet );
+    // register a handler called whenever "orders" is returned
+    setedious.onDataset( "orders", dataSet=>{
+        console.log( `dataSet 'orders' has been returned` );
+        console.log( dataSet.orders );
     });
 
-The above handler will be called whenever any sql statement submitted to setedious returns a dataset named "myNamedSet".
+The above handler will be called whenever any sql statement submitted to setedious returns a dataset named "orders". _Note that all set names are case-insensitive._
 
-    // create and submit the SQL, with handler for all datasets
-    let sql = "SELECT 'myNamedSet' setName, * FROM myTable;"
-             + " SELECT 'anotherSet' setName, * FROM anoTable; ";
+    // Define the SQL statement to be run
+    let sql = " SELECT 'orders' setName, * FROM ordersTable; "
+             + " SELECT 'customers' setName, * FROM customerTable; ";
     
-The above SQL statement will return two datasets, named "myNamedSet" and "anotherSet". Empty datasets are not returned.
+The above SQL statement will return two datasets, named "orders" and "customers" respectively. _Note empty datasets are not returned._
 
-    // execute both select statements and collect the returned
+    // execute the SQL and collect the returned
     // datasets in a callback.
-    setedious.execSQL( sql , (err, allDataSets )=>{
-        if( err ){
-            console.log( "ERROR REPORTED", err)
-        }
+    setedious.execSQL( sql , ( allDataSets, errors )=>{
         console.log("All data sets", allDataSets );
+        if(errors) console.log("Errors", errors );
     });
 
-The above js statement will execute the SQL, and return the datasets back to the callback. If a dataset with the name ERROR is returned from the call, that will be returned in the parameter err.
+The above js statement will execute the SQL, and return the datasets back to the callback. _By convention_ if a dataset with the name "errors" is returned from the call, that dataset will be returned in the second parameter of the callback (_errors_ in the example above). 
+* Note that there may be both an _errors_ data set and also other datasets returned as a result of a single call.
+* Note that SQL errors such as invalid syntax will be returned in the _errors_ dataset, **not** by a thrown error.
+* Note that multiple errors may be returned as the result of a single call, in which case the _errors_ data set will contain multiple rows.
 
 
 ### setName column in SQL statements
-To correctly allocate returned data rows to a named dataSet, the first column of a result set must be named **setName** and be set to the string name of the dataset:
+To correctly allocate returned data rows to a named dataSet, the first column of all records in a result set must be named **setName** and be set to the string name of the dataset:
 
 *Example*
 
-    SELECT "PERSONS" setName, * FROM T_PERSONS;
+    SELECT "persons" setName, * FROM T_PERSONS;
+
 **NOTES**
- * If there is no setName column, then the set name defaults to **dataSet**. 
-* If multiple SQL statements in a single request return rows with the **same** *setName* then all the rows returned from those SQL statements are concatenated in a single dataset. For example, this SQL will return a single dataset named **PLANES** containing all records from both tables, monoplanes first then biplanes:
+ * If there is no setName column, then the set name defaults to **dataset**. 
+
+* The value of the column _setName_ is regarded as case-insensitive and all set names will be converted to lower-case strings in the results. Therefore, rows returned with _setName_ differing only by capitalisation will be returned in the _same_ dataset, whose set name will be lower-case letters only.
+
+* If multiple SQL statements in a single request return rows with the **same** *setName* then all the rows returned from those SQL statements are concatenated in a single dataset. For example, the SQL below will return a single dataset named **PLANES** containing all records from both tables, monoplanes first then biplanes:
 
         let sql = " SELECT 'PLANES' setName, * FROM t_MonoPLANES ORDER BY name; SELECT 'PLANES' setName, * FROM t_BiPLANES ORDER BY name;"
 
@@ -66,7 +71,8 @@ To correctly allocate returned data rows to a named dataSet, the first column of
 
         let sql = " SELECT CASE WHEN age>=18 THEN 'ADULTS' ELSE 'KIDS' END setName, * FROM tAllPeople; "
 
-* The *setName* column is removed from the dataset before it is returned to the callback function.
+* The *setName* column is removed from all rows in the dataset before it is returned to the callback function.
+
 * Any field in the database that has a name ending with the string *_json* is parsed to an object using *JSON.parse()* before being returned in the dataset, and the *_json* suffix is removed from the column name. The original JSON text is also included.
 
 ### connection options

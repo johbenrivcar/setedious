@@ -8,7 +8,7 @@ log( "Starting DBTest at",  (new Date() ).toISOString() );
 
 
 const setedious = require( "./setedious" );
-setedious.verbose = false;
+setedious.verbose = true;
 setedious.log = logToDisk;
 
 setedious.connect( {
@@ -34,35 +34,39 @@ setedious.connect( {
 )
     
 
-setedious.onDataset( "SSM", function( set , count ){
-    let ds = set.SSM;
+setedious.onDataset( "ssm", function( set  ){
+    let ds = set.ssm;
     log( `SSM set collected with ${ds.length} rows`)
     log( set.setName, ds );
 })
 
-setedious.onDataset( "SPPARAM", function( set , count ){
-    let ds = set.SPPARAM;
+setedious.onDataset( "spparam", function( set  ){
+    let ds = set.spparam;
     log( `SPPARAM set collected with ${ds.length} rows`)
     log( set.setName, ds );
 })
 
-setedious.onDataset( "PSN", function( set , count ){
-    let ds = set.PSN;
+setedious.onDataset( "psn", function( set  ){
+    let ds = set.psn;
     log( `PSN set collected with ${ds.length} rows`)
     log( set.setName, ds );
 })
 
-setedious.onDataset( "GRP", function( set , count ){
-    let ds = set.GRP;
+setedious.onDataset( "grp", function( set ){
+    let ds = set.grp;
     log( `GRP set collected with ${ds.length} rows`)
     log( set.setName, ds );
 })
 
-setedious.onDataset( "ERROR", function( set , context ){
-    let ds = set.ERROR
-    log( `ERROR set  with ${ds.length} rows!!`, ds);
+setedious.onDataset( "errors", function( set  ){
+    let ds = set.errors
+    log( `ERRORS set  with ${ds.length} rows!!`, ds);
 })
 
+setedious.onDataset( "error", function( set  ){
+    let ds = set.error; // This is always only a single error
+    log( `ERROR object is  `, ds);
+})
 function runTest(){
 /*
     let sql = " SELECT 'SSM' AS setName, SSM.* FROM SSM_SessionMaster SSM; "
@@ -83,12 +87,24 @@ function runTest(){
     //     log( "SPPARAMS FOR getPerson", err, ds )
     // })
 
-    sql = " SELECT TOP(1) 'PSN' setName, PSN.* FROM vPSN_Person PSN ORDER BY PSN.Name ; " ;
+    sql = " SELECT TOP(3) 'PSN' setName, PSN.* FROM vPSN_Person PSN ORDER BY PSN.Name ; " ;
     sql += ` EXEC getPerson @PersonUID='123456789012345' ;`
     sql +=  " EXEC GetSpParams @SPName='getPerson' ; "
     sql += " EXEC	[RaiseError] @Msg = 'TEST ERROR', @Enum = -300, @Data_JSON = '{}' ; "
     sql += ` SELECT TOP(1) 'GRP' setName, GRP.* FROM GRP_Group GRP; `
-    setedious.execSql( sql ) ;
+    setedious.execSql( sql, 
+            function( data ){
+                if( data.errors ){
+                    log( "THERE ARE ERRORS", data.errors );
+                    delete data.errors
+                    delete data.error
+                }
+
+                log( "All the non-error data", data);
+
+            }
+
+    );
 
 }
 
