@@ -1,4 +1,10 @@
 # setedious
+___
+#### NOTES ON V2 
+##### Error handling
+    Major changes to error handling mean that the signature for the callback passed to execSql() has changed. Now there is a single return object which includes all the datasets and all the errors under the key _errors_. So to test for errors in the returned results, check for _datasets.errors_. More than one error may be returned in _.errors_ from a single call to execSql(). 
+___
+
 A wrapper for [tedious] that returns named data sets from multiple SQL Selects, or SP calls.
 
 Basic features
@@ -40,16 +46,16 @@ The above SQL statement will return two datasets, named "orders" and "customers"
 
     // execute the SQL and collect the returned
     // datasets in a callback.
-    setedious.execSQL( sql , ( allDataSets, errors )=>{
+    setedious.execSQL( sql , ( allDataSets )=>{
         console.log("All data sets", allDataSets );
-        if(errors) console.log("Errors", errors );
+        if(allDataSets.errors) console.log("Errors", allDataSets.errors );
     });
 
-The above js statement will execute the SQL, and return the datasets back to the callback. _By convention_ if a dataset with the name "errors" is returned from the call, that dataset will be returned in the second parameter of the callback (_errors_ in the example above). 
+The above js statement will execute the SQL, and return the datasets back to the callback. _By convention_ if an error has occurred in execution of the SQL, then a dataset "errors" is included in the returned datasets.
+
 * Note that there may be both an _errors_ data set and also other datasets returned as a result of a single call.
 * Note that SQL errors such as invalid syntax will be returned in the _errors_ dataset, **not** by a thrown error.
 * Note that multiple errors may be returned as the result of a single call, in which case the _errors_ data set will contain multiple rows.
-
 
 ### setName column in SQL statements
 To correctly allocate returned data rows to a named dataSet, the first column of all records in a result set must be named **setName** and be set to the string name of the dataset:
