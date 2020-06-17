@@ -55,7 +55,7 @@ const connectionRequestQueue = [];
 
 // Null function for formatting names, this is the default
 // Set setFormatColNameFunction below for more information
-var formatColName = function () name ){ return name; };
+var formatColName = function ( name ){ return name; };
 
 function connect( options ){
     if( !options.tedious ){ throw new Error( "Connection options must include [tedious] configuration"); }
@@ -824,12 +824,18 @@ function stringToElementaryType( xxx ){
 // only the first character of the column name is converted to lower case.
 
 function setFormatColNameFunction(){
-    if( params.namesToLC ) { formatColName = function( name ){ return name.toLowerCase() }; return; }
+    if( params.namesToLC ) { formatColName = function( name ){ return name.toLowerCase() }; }
     if( params.namesToLC1 ){
         formatColName = 
             function(name){
-                return name.substr(0,1).toLowerCase() + name.substr(1);
-            }
+                
+                
+                return (name.length > 3?
+                            name.substr(0,1).toLowerCase() + name.substr(1) :
+                            name.toLowerCase() 
+                        ) ;
+
+            };
     }
 };
 
