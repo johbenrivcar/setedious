@@ -53,6 +53,9 @@ var connectionPoolLimit = 5;
 const requestQueue = [];
 const connectionRequestQueue = [];
 
+// Null function for formatting names, this is the default
+// Set setFormatColNameFunction below for more information
+var formatColName = function () name ){ return name; };
 
 function connect( options ){
     if( !options.tedious ){ throw new Error( "Connection options must include [tedious] configuration"); }
@@ -64,6 +67,8 @@ function connect( options ){
         opt.rowCollectionOnRequestCompletion =  false;
     }
     params = options;
+    setFormatColNameFunction();
+
     if( params.connectionPoolLimit ) connectionPoolLimit = params.connectionPoolLimit ;
     tediousConfig = params.tedious ;
     coreLog( "Configuration:", tediousConfig)
@@ -359,7 +364,7 @@ function execSql( sql, callback, context ){
         ; } 
 
         // Any rows with set name ERROR are treated as being for ERRORS 
-        if( setName == `error`) setName = `errors`;
+        ; if( setName == `error`) setName = `errors`;
 
         // Check that the set array has been defined in the
         // result sets from this request.
@@ -534,6 +539,7 @@ function doCallbacks( cbList, ...params ){
     })
 };
 
+// ========================================================================================== convertRowToObject
 /**
  * This function converts a row returned from a SQL statement being executed into
  * a row of data suitable for returning in a dataset. The column names and values
@@ -548,18 +554,20 @@ function convertRowToObject( row ){
     
     row.forEach( (col, ix)=>{
         let colName = col.metadata.colName;
+        let outputColName = formatColName( colName );
+        
         // check that this is not the setName column
         if( colName.toLowerCase() != "setname" ){
             let val = col.value;
 
             if( params.includeMetadata ){
                 //ro[ colName + "_meta" ] =  col.metadata ;
-                ro[ colName + "_type" ] =  simpleClone( col.metadata.type, "colName" ) ;
+                ro[ outputColName + "_type" ] =  simpleClone( col.metadata.type, "colName" ) ;
             };
 
             // check for json object in this column
             if( colName.substr( -5 ).toLowerCase() === "_json"){
-                ro[colName]=val;
+                ro[outputColName]=val;
                 if( typeof val == "string" ){
 
                     // try to convert to a javascript object
@@ -570,17 +578,17 @@ function convertRowToObject( row ){
                             obj = preprocessJSON ( obj );
                         }
                         // remove the _json suffix from the name
-                        let oColName = colName.substr(0, colName.length - 5);
+                        let outputColName = outputColName.substr(0, colName.length - 5);
 
                         // set the object value of the column
-                        ro[oColName]=obj;
+                        ro[outputColName]=obj;
 
                     } catch(e){
 
                     }
 
                 }
-            } else ro[colName]=val;
+            } else ro[outputColName]=val;
         }
 
     })
@@ -602,6 +610,8 @@ function log( xModuleName, ...args ){
     //} );
 
 }
+
+
 // ========================================================================================== dts
 function hhmmss( ddd ){ 
     if( !ddd ) ddd = new Date();
@@ -806,6 +816,23 @@ function stringToElementaryType( xxx ){
     //console.log( "..>str")
     return xxx;
 }
+
+// *********************************************************************************************
+// Functions for formatting the column names in SQL into keys in javascript objects. The
+// paramter settings that control this are: params.namesToLC and params.namesToLC1. If namesToLC
+// is set then the whole column name is converted to lower case, while if namesToLC1 is set, then
+// only the first character of the column name is converted to lower case.
+
+function setFormatColNameFunction(){
+    if( params.namesToLC ) { formatColName = function( name ){ return name.toLowerCase() }; return; }
+    if( params.namesToLC1 ){
+        formatColName = 
+            function(name){
+                return name.substr(0,1).toLowerCase() + name.substr(1);
+            }
+    }
+};
+
 
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
