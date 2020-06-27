@@ -189,12 +189,14 @@ function execSql( sql, callback, context ){
     // provided
 
     let firstSQL = sql.splice(0,1)[0];
-    log( `First SQL`, firstSQL );
+    verbLog( `First SQL`, firstSQL );
+
+    let currentSQL = firstSQL;
 
     // this function handles the return of individual rows
     // of each dataset returned from the SQL statement.
     let rowHandlerFunction = function( rowOfCols ){
-        ; verbLog( ">> on_Row")
+        ; verbLog( `>> on_Row for`, currentSQL )
         ; let col0 = rowOfCols[0]
         ; let setName = "recordset"
         ; if( col0.metadata.colName.toLowerCase() == "setname" ){
@@ -214,7 +216,7 @@ function execSql( sql, callback, context ){
         // Convert the given row into our standard row object
         ; let oRow = convertRowToObject( rowOfCols )
         
-        //; verbLog( "==== ROW DATA:", oRow )
+        ; verbLog( `==== [${setName}] ROW DATA:`, oRow )
 
         // Add the row object to the end of the set array.
         ; returnedDataSets[setName].push( oRow )
@@ -236,7 +238,7 @@ function execSql( sql, callback, context ){
     // defined below.
     let requestComplete = function ( err ){
         verbLog( ">> requestComplete")
-        verbLog( `Exec fininished for [${sql}]`)
+        verbLog( `Exec fininished for [${currentSQL}]`)
 
         let bError = ( !(!err) );
 
@@ -384,9 +386,11 @@ function execSql( sql, callback, context ){
         if( sql.length > 0 ){
 
             let NextSQL = sql.splice( 0, 1 )[0];
+            currentSQL = NextSQL
             returnedDataSets = {};
+            verbLog(`Submitting the next request in array:`, NextSQL )
+
             // prepare the request for the next sql statement
-            
             let nextRequest = new Request(
 
                 NextSQL,

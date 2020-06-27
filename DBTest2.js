@@ -8,7 +8,7 @@ log( "Starting DBTest at",  (new Date() ).toISOString() );
 
 
 const setedious = require( "./setedious" );
-setedious.verbose = true;
+setedious.verbose = false;
 setedious.log = logToDisk;
 
 setedious.connect( {
@@ -92,11 +92,11 @@ function runTest(){
 
     setedious.execSql( sql1, 
         function( data ){
-            if( data.errors ){
-                log( "THERE ARE ERRORSin SQL1", data.errors );
-                delete data.errors
-                delete data.error
-            }
+            // if( data.errors ){
+            //     log( "THERE ARE ERRORSin SQL1", data.errors );
+            //     delete data.errors
+            //     delete data.error
+            // }
 
             log( "SQL1 Retuslts---", data);
 
@@ -110,13 +110,13 @@ function runTest(){
 
             setedious.execSql( sql2, 
                 function( data ){
-                    if( data.errors ){
-                        log( "THERE ARE ERRORS in SQL2", data.errors );
-                        delete data.errors
-                        delete data.error
-                    }
+                    // if( data.errors ){
+                    //     log( "THERE ARE ERRORS in SQL2", data.errors );
+                    //     //delete data.errors
+                    //     //delete data.error
+                    // }
         
-                    log( "SQL2 Retuslts---", data);
+                    log( "SQL2 Results---", data);
         
                 }
         
@@ -127,11 +127,11 @@ function runTest(){
     sql3 += ` SELECT TOP(1) 'GRP' setName, GRP.* FROM GRP_Group GRP; `
     setedious.execSql( sql3, 
             function( data ){
-                if( data.errors ){
-                    log( "THERE ARE ERRORS IN SQL3", data.errors );
-                    delete data.errors
-                    delete data.error
-                }
+                // if( data.errors ){
+                //     log( "THERE ARE ERRORS IN SQL3", data.errors );
+                //     delete data.errors
+                //     delete data.error
+                // }
 
                 log( "SQL3 All the non-error data", data);
 
