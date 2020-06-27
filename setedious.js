@@ -183,187 +183,26 @@ function execSql( sql, callback, context ){
     // Define a variable to hold all the result sets for this request
     let returnedDataSets = {};
 
+    // Check that the sql statement is an array
+    if( !Array.isArray( sql ) ) sql = [ sql ];
     // Create the new request to be executed given the SQL statement
     // provided
-    let request = new Request(
 
-        sql,
+    let firstSQL = sql.splice(0,1)[0];
+    log( `First SQL`, firstSQL );
 
-        // This function is called when the whole 
-        // request has been completed. Its purpose 
-        // is to return all the returned result sets
-        // to all the relevant callback functions
-        // that have been registered, and all the
-        // returned results sets to the
-        // callback specifically supplied with this
-        // request, if any.
-        // Note that before this function is called,
-        // the results sets have been built up row
-        // by row through the on.row function that is
-        // defined below.
-        function requestComplete( err ){
-            verbLog( ">> requestComplete")
-            verbLog( `Exec fininished for [${sql}]`)
-
-            let bError = ( !(!err) );
-
-            if( bError ){ 
-                    verbLog(`--- ERROR REPORTED ON EXEC [${sql}] `, err );
-
-                    // Add the error to the 'errors' dataset response to the caller.
-                    
-                    if( returnedDataSets.errors ){
-                        returnedDataSets.errors.push( err );
-                    } else {
-                        returnedDataSets.errors = [ err ];
-                    };
-                    
-                    // Try to close the connection because we can't use
-                    // this connection again (don't re-use after an error)
-                    try{
-                        request.XWDB_connection.close();
-                    } catch(e){};
-
-                    delete request.XWDB_connection;
-
-                    // Reduce the connection count, so a new connection could
-                    // be created if required.
-                    connectionCount--;
-
-                    // Make sure to restart the request queue polling after 
-                    // handling this error
-                    setTimeout( checkRequestQueue, 10 );
-
-            };
-
-
-            // process the errors through the error handlers already registered
-            if( returnedDataSets.errors ){
-                    let errorsDS = { dataSet: 'errors', errors: returnedDataSets.errors } ;
-
-                    // By convention, the property 'error' is set to the first row of the errors set
-                    errorsDS.error = errorsDS.errors[0];
-
-
-                    // call all the callbacks that have been registered to handle
-                    // sets of type 'errors' or error
-                    if( onEvents.error ) doCallbacks( onEvents.error, errorsDS ); 
-                    if( onEvents.errors ) doCallbacks( onEvents.errors, errorsDS );
-
-                    
-                };
-            
-            // Now continue to return all data to the user
-            let cnxx = request.XWDB_connection;
-
-            // Remove the reference to the connection from the request object,
-            // as it will not be used again by this request.
-            request.XWDB_connection = null;
-            
-
-            // Try to reset the database connection so that it can be re-used
-            if( cnxx ) cnxx.reset( 
-                function( err ){ 
-                    // Check if there was an error on resetting
-                    if( err ){
-                        verbLog(`--- ERROR Connection reset failed`, err )
-
-                        // Try to close the connection (failed to reset, so cannot re-use)
-                        try{
-                            cnxx.close();
-                        } catch(e){};
-
-                        // Reduce the connection count, so a new connection could
-                        // be created if required.
-                        connectionCount--;
-
-                        // Make sure to restart the request queue polling after
-                        // handling this error.
-                        setTimeout( checkRequestQueue, 10 );
-
-
-                        verbLog( `Check of request queue has been scheduled`)
-                        return ;
-                    }
-
-                    // Connection has been reset, so it can be re-used
-                    verbLog( "CONNECTION RESET SUCCESSFULLY");
-
-                    // Push the connection back into the connectionPool
-                    connectionPool.push( cnxx );
-                    verbLog( `Connection returned into pool, length is now [${connectionPool.length}]`);
-                    
-                    // Make sure to restart the request queue polling after
-                    // resetting this connection.
-                    setTimeout( checkRequestQueue, 1 );
-                    verbLog( `Check of request queue has been scheduled`)
-                }
-            );
-
-            // _returnedDataSets_ is an object containing named data sets. Each
-            // data set is array property containing one or more data records making
-            // up the data set, like this:
-            // _returnedDataSets_ = { set1: [ { .. record 0 }, { .. record 1 }, .. ], set2: [ { .. record 0 }, .. ]}
-
-            // check if there are any handlers pre-registered for these result sets
-
-            // Get a list of all the set names
-            let setNames = Object.keys( returnedDataSets );
-
-            // Check for any handlers that have been registered for each set name,
-            // other than errors, which have been already handled above:
-            setNames.forEach( 
-                function(setName){
-                    if ( setName != "errors" && setName != "error" ){
-                        
-                        // get the list of handlers for this set name, if any
-                        let handlers = onResultSetHandlers[setName];
-                        if( handlers ){
-
-                            // construct a dataset object to be sent
-                            let xo = { };
-                            xo.setName = setName;
-                            xo[setName] = returnedDataSets[setName] ;  
-
-                            // call each handler in turn
-                            handlers.forEach( handler =>{
-                                // make async calls to the handlers
-                                setTimeout( handler, 0,  xo, context );
-                            });
-                        };
-                    }
-                }
-            );
-
-            // Now check for the specific callback for this SQL statement execution
-            if( callback ) {
-
-                verbLog( `Calling back to original requester`)
-
-                // callback( sets, context)
-                setTimeout( callback, 0, returnedDataSets, context );
-
-            }
-
-            verbLog( "<< requestComplete" )
-
-        }
-    );
-    
-    // =----------------------------------------------------------
-    // Define the event handler to be called for each row returned
-    // from this request. By convention, the first column is [setname]
-    // whose value identifies the set to which each row belongs.
-    request.on( "row", function( rowOfCols ){
+    // this function handles the return of individual rows
+    // of each dataset returned from the SQL statement.
+    let rowHandlerFunction = function( rowOfCols ){
         ; verbLog( ">> on_Row")
         ; let col0 = rowOfCols[0]
-        ; let setName = "dataset"
+        ; let setName = "recordset"
         ; if( col0.metadata.colName.toLowerCase() == "setname" ){
             // Make sure the set name is converted to lower case
             ; setName = `${col0.value}`.toLowerCase() 
         ; } 
 
-        // Any rows with set name ERROR are treated as being for ERRORS 
+        // Any rows with set name "error" are treated as being for "errors" 
         ; if( setName == `error`) setName = `errors`;
 
         // Check that the set array has been defined in the
@@ -381,7 +220,215 @@ function execSql( sql, callback, context ){
         ; returnedDataSets[setName].push( oRow )
         ;
 
-    })
+    }
+
+    // This function is called when each sql request 
+    // request has been completed. Its purpose 
+    // is to return all the returned result sets
+    // to all the relevant callback functions
+    // that have been registered, and all the
+    // returned results sets to the
+    // callback specifically supplied with this
+    // request, if any.
+    // Note that before this function is called,
+    // the results sets have been built up row
+    // by row through the on.row function that is
+    // defined below.
+    let requestComplete = function ( err ){
+        verbLog( ">> requestComplete")
+        verbLog( `Exec fininished for [${sql}]`)
+
+        let bError = ( !(!err) );
+
+        if( bError ){ 
+                verbLog(`--- ERROR REPORTED ON EXEC [${sql}] `, err );
+
+                // Add the error to the 'errors' dataset response to the caller.
+                
+                if( returnedDataSets.errors ){
+                    returnedDataSets.errors.push( err );
+                } else {
+                    returnedDataSets.errors = [ err ];
+                };
+                
+                // Try to close the connection because we can't use
+                // this connection again (don't re-use after an error)
+                try{
+                    request.XWDB_connection.close();
+                } catch(e){};
+
+                delete request.XWDB_connection;
+
+                // Reduce the connection count, so a new connection could
+                // be created if required.
+                connectionCount--;
+
+                // Make sure to restart the request queue polling after 
+                // handling this error
+                setTimeout( checkRequestQueue, 10 );
+
+        };
+
+
+        // process the errors through the error handlers already registered
+        if( returnedDataSets.errors ){
+            let errorsDS = { dataSet: 'errors', errors: returnedDataSets.errors } ;
+
+            // By convention, the property 'error' is set to the first row of the errors set
+            errorsDS.error = errorsDS.errors[0];
+
+            // call all the callbacks that have been registered to handle
+            // sets of type 'errors' or error
+            if( onEvents.error ) doCallbacks( onEvents.error, errorsDS ); 
+            if( onEvents.errors ) doCallbacks( onEvents.errors, errorsDS );
+
+        };
+        
+        // Now continue to return all data to the user
+        let cnxx = request.XWDB_connection;
+
+        // Remove the reference to the connection from the request object,
+        // as it will not be used again by this request.
+        request.XWDB_connection = null;
+        
+
+        // Try to reset the database connection so that it can be re-used
+        if( cnxx ) cnxx.reset( 
+            function( err ){ 
+                // Check if there was an error on resetting
+                if( err ){
+                    verbLog(`--- ERROR Connection reset failed`, err )
+
+                    // Try to close the connection (failed to reset, so cannot re-use)
+                    try{
+                        cnxx.close();
+                    } catch(e){};
+
+                    // Reduce the connection count, so a new connection could
+                    // be created if required.
+                    connectionCount--;
+
+                    // Make sure to restart the request queue polling after
+                    // handling this error.
+                    setTimeout( checkRequestQueue, 10 );
+
+
+                    verbLog( `Check of request queue has been scheduled`)
+                    return ;
+                }
+
+                // Connection has been reset, so it can be re-used
+                verbLog( "CONNECTION RESET SUCCESSFULLY");
+
+                // Push the connection back into the connectionPool
+                connectionPool.push( cnxx );
+                verbLog( `Connection returned into pool, length is now [${connectionPool.length}]`);
+                
+                // Make sure to restart the request queue polling after
+                // resetting this connection.
+                setTimeout( checkRequestQueue, 1 );
+                verbLog( `Check of request queue has been scheduled`)
+            }
+        );
+
+        // _returnedDataSets_ is an object containing named data sets. Each
+        // data set is array property containing one or more data records making
+        // up the data set, like this:
+        // _returnedDataSets_ = { set1: [ { .. record 0 }, { .. record 1 }, .. ], set2: [ { .. record 0 }, .. ]}
+
+        // check if there are any handlers pre-registered for these result sets
+
+        // Get a list of all the set names
+        let setNames = Object.keys( returnedDataSets );
+
+        // Check for any handlers that have been registered for each set name,
+        // other than errors, which have been already handled above:
+        setNames.forEach( 
+            function(setName){
+                if ( setName != "errors" && setName != "error" ){
+                    
+                    // get the list of handlers for this set name, if any
+                    let handlers = onResultSetHandlers[setName];
+                    if( handlers ){
+
+                        // construct a dataset object to be sent
+                        let xo = { };
+                        xo.setName = setName;
+                        xo[setName] = returnedDataSets[setName] ;  
+
+                        // call each handler in turn
+                        handlers.forEach( handler =>{
+                            // make async calls to the handlers
+                            setTimeout( handler, 0,  xo, context );
+                        });
+                    };
+                }
+            }
+        );
+
+        // Now check for the specific callback for this SQL statement execution
+        if( callback ) {
+
+            verbLog( `Calling back to original requester`)
+
+            let xDataSets = returnedDataSets;
+            // callback( sets, context)
+            setTimeout( callback, 0, xDataSets, context );
+
+
+        }
+
+        // check to see if there are any more requests
+        // to be processed
+
+        if( sql.length > 0 ){
+
+            let NextSQL = sql.splice( 0, 1 )[0];
+            returnedDataSets = {};
+            // prepare the request for the next sql statement
+            
+            let nextRequest = new Request(
+
+                NextSQL,
+
+                requestComplete
+                
+            );
+
+            // =----------------------------------------------------------
+            // Regiseter the event handler to be called for each row returned
+            // from this request. By convention, the first column is [setname]
+            // whose value identifies the set to which each row belongs.
+            nextRequest.on( "row", rowHandlerFunction );
+
+            requestQueue.push( nextRequest );
+            ; verbLog( `Added next request to request queue, length=[${requestQueue.length}]`)
+
+
+            // Make sure the request queue polling is restarted
+            setTimeout( checkRequestQueue, 10 );
+            ; verbLog( `Next request ready for execution` );
+
+        }
+
+        verbLog( "<< requestComplete" )
+
+    }
+
+
+    let request = new Request(
+
+        firstSQL,
+
+        requestComplete
+        
+    );
+    
+    // =----------------------------------------------------------
+    // Regiseter the event handler to be called for each row returned
+    // from this request. By convention, the first column is [setname]
+    // whose value identifies the set to which each row belongs.
+    request.on( "row", rowHandlerFunction )
 
     // Add the new request to the request queue, so that it will be picked
     // up and executed as soon as there is a free connection available for use.
