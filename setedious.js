@@ -75,12 +75,12 @@ function connect( options ){
     newConnection();
 }
 
-function getFreeConnection( callback ){   
-    connectionPoolLimit++;
-    connectionRequestQueue.push( callback );
-    setTimeout( checkRequestQueue, 0 );
+// function getFreeConnection( callback ){   
+//     connectionPoolLimit++;
+//     connectionRequestQueue.push( callback );
+//     setTimeout( checkRequestQueue, 0 );
 
-}
+// }
 
 function newConnection( ){
     verbLog( ">>newConnection");
@@ -562,7 +562,7 @@ function convertRowToObject( row ){
 
             if( params.includeMetadata ){
                 //ro[ colName + "_meta" ] =  col.metadata ;
-                ro[ outputColName + "_type" ] =  simpleClone( col.metadata.type, "colName" ) ;
+                ro[ outputColName + "_type" ] =  simpleClone( col.metadata.type, ["colName"] ) ;
             };
 
             // check for json object in this column
@@ -578,13 +578,13 @@ function convertRowToObject( row ){
                             obj = preprocessJSON ( obj );
                         }
                         // remove the _json suffix from the name
-                        let outputColName = outputColName.substr(0, colName.length - 5);
+                        let objColName = outputColName.substr(0, colName.length - 5);
 
                         // set the object value of the column
-                        ro[outputColName]=obj;
+                        ro[objColName]=obj;
 
                     } catch(e){
-
+                        log( `Error trying to convert ${colName} column to object`, e)
                     }
 
                 }
@@ -830,9 +830,8 @@ function setFormatColNameFunction(){
             function(name){
                 
                 
-                return (name.length > 3?
-                            name.substr(0,1).toLowerCase() + name.substr(1) :
-                            name.toLowerCase() 
+                return (    name.length > 3? name.substr(0,1).toLowerCase() + name.substr(1) 
+                            : name.toLowerCase() 
                         ) ;
 
             };
