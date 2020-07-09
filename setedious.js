@@ -879,14 +879,24 @@ function setFormatColNameFunction(){
     if( params.namesToLC1 ){
         formatColName = 
             function(name){
-                
-                
-                return (    name.length > 3? name.substr(0,1).toLowerCase() + name.substr(1) 
-                            : name.toLowerCase() 
-                        ) ;
+                if ( name.length < 4 ) return name.toLowerCase();
+                let ix = name.indexOf(`_`);
+                switch( true ){
 
+                    case ix == -1: 
+                    case ix > 3:
+                        return name.substr(0,1).toLowerCase() + name.substr(1); 
+
+                    case ix == 0:
+                        return name;
+
+                    default:
+                        return name.substr(0,ix).toLowerCase() + name.substr( ix );
+                }
+                
             };
     }
+
 };
 
 
