@@ -884,7 +884,7 @@ function setFormatColNameFunction(){
                 switch( true ){
 
                     case ix == -1: 
-                    case ix > 3:
+                    case ix > 6:
                         return name.substr(0,1).toLowerCase() + name.substr(1); 
 
                     case ix == 0:
