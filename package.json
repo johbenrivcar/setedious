@@ -4,7 +4,7 @@
   "description": "An async wrapper for [tedious] that returns named data sets",
   "main": "setedious.js",
   "dependencies": {
-    "tedious": "^8.3.0"
+    "tedious": "^15.1.2"
   },
   "devDependencies": {},
   "scripts": {
