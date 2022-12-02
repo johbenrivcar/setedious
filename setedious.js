@@ -1,8 +1,61 @@
 /**
- * Provides a complete service for accessing - reading from and writing to - the crossword database
- * 
+ * Provides a complete service for accessing - reading from and writing to - a SQL Server Database
  * 
  */
+
+const EM = require("events");
+
+/** ================================================================================== SQLRunner CLASS
+ * SQLRunner - object provides an asyncrhonous event-emitter that accepts
+ * a sql script and runs it. The events that are emitted are named
+ * according to the datasets that are returned by the SQL statements. Each named
+ * dataset raises an event of that name. On completion of all the SQL commands
+ * in the SQL script, the final event "DONE" is raised to indicate completion.
+ */
+class SQLRunner extends EM {
+    constructor( dbs ){
+        super();
+        this.dbs = dbs;
+        this.running = false;
+    }
+
+    run( sql, clientContext ){
+        verbLog( "SQLRunner[run]:", sql );
+
+        if( this.running ){
+            throw new Error( "Already running" );
+            return;
+        }
+        this.running = true;
+        this.sql = sql;
+        this.clientContext = clientContext;
+        execSqlWithRunner( this )
+    }
+
+
+    _sqlDone( ds ){
+        verbLog( "SQLRunner[sqlDone]:", this.sql, ds );
+        let sets = Object.keys( ds );
+        verbLog( "sets:", sets );
+        sets.forEach( key => {
+            this.emit( key, ds[key] );
+        });
+
+        let cc = this.clientContext;
+        this.emit( "DONE", ds, cc );
+        this.running = false;
+        
+    }
+}
+
+function execSqlWithRunner( runner ){
+    execSql( runner.sql, ds=>{
+        runner._sqlDone( ds );
+    });
+}
+
+// ======================================================================
+
 
 module.exports = {
     connect: connect
@@ -14,10 +67,9 @@ module.exports = {
     , log: console.log
     , simpleClone: simpleClone
     , execSqlP: execSqlP            // Promise-based execution
-}
+    , SQLRunner: SQLRunner
+};
 
-
-function emptyFunction(){ return; };
 
 verbLog(">>>>>>>>>>>>>>>>>  SeTedious STARTING >>>>>>>>>>>>>>>>>>");
 
@@ -170,15 +222,18 @@ function execSqlP( sql, context ){
             }
         });
     return pp
-}
+};
 
-
+/** ============================================================================== execSql
+ * Runs a SQL script, or an array of scripts in turn, and for each script calls back 
+ * with an object containing all the named data sets that were selected by the SQL.
+ * @param {*} sql           SQL Script or array of scripts to be run
+ * @param {*} callback      Callback to be called when each script has finished, with data
+ * @param {*} context       Caller context that will be returned unchanged to the callback
+ */
 function execSql( sql, callback, context ){
     
     verbLog(`>> ***************** execSql  ************  ( [${sql}] )`);
-
-    
-    
     
     // Define a variable to hold all the result sets for this request
     let returnedDataSets = {};
@@ -210,8 +265,8 @@ function execSql( sql, callback, context ){
         // Check that the set array has been defined in the
         // result sets from this request.
         ; if( !returnedDataSets[setName] ) { 
-            ; returnedDataSets[setName] = []
-        }
+                ; returnedDataSets[setName] = []
+            }
 
         // Convert the given row into our standard row object
         ; let oRow = convertRowToObject( rowOfCols )
@@ -220,7 +275,7 @@ function execSql( sql, callback, context ){
 
         // Add the row object to the end of the set array.
         ; returnedDataSets[setName].push( oRow )
-        ;
+        
 
     }
 
@@ -280,7 +335,7 @@ function execSql( sql, callback, context ){
             errorsDS.error = errorsDS.errors[0];
 
             // call all the callbacks that have been registered to handle
-            // sets of type 'errors' or error
+            // sets of type 'errors' or 'error'
             if( onEvents.error ) doCallbacks( onEvents.error, errorsDS ); 
             if( onEvents.errors ) doCallbacks( onEvents.errors, errorsDS );
 
@@ -447,23 +502,39 @@ function execSql( sql, callback, context ){
     verbLog(`<< execSql`);
 }
 
-
+/** ==================================================================================== checkRequestQueue
+ * Function called asynchronously to check the incoming request queue to see
+ * if there are any queued requests that can be run. The function is scheduled
+ * to run whenever a new request is added to the request queue or a free
+ * connection is added/returned to the free connection pool. If there are queued 
+ * requests but no free connections, and the pool limit has not yet been reached,
+ * then the process to open a new connection is scheduled to run asynchronously.
+ * If there is a queued request and an available connection, then the process to
+ * run the request is started on that connection and the connection removed from
+ * the free pool. If there no queued requests, the function does nothing.
+ */
 function checkRequestQueue(){
-    verbLog(`>> checkRequestQueue - CXQ length=[${connectionRequestQueue.length}], RQ length=[${requestQueue.length}], CP length=[${connectionPool.length}]`);
+    let CXRQL = connectionRequestQueue.length;
+    let RQL = requestQueue.length;
+    let CPL = connectionPool.length;
+
+
+    verbLog(`>> checkRequestQueue - CXQ length=[${CXRQL}], RQ length=[${RQL}], CP length=[${CPL}]`);
 
     // Check if there are any requests waiting to be serviced
-    if( requestQueue.length == 0 &&  connectionRequestQueue.length == 0 ) {
+    if( RQL == 0 &&  CXRQL == 0 ) {
         verbLog(`<<checkRequestQueue - no requests waiting`);
         return;
     }
 
     // Check if there are any free connections available
-    if( connectionPool.length == 0 ) { 
+    if( CPL == 0 ) { 
         // No free connections
         // Have we reached the connection limit (set by user)
         if ( connectionPoolLimit <= connectionCount ){ 
             // Log this situation if it has just changed
-            if( !waitingFreeConnection ) coreLog( `<< checkRequestQueue - connection limit [${connectionPoolLimit}] reached, waiting for a free connection` ); 
+            if( !waitingFreeConnection ) 
+                coreLog( `<<checkRequestQueue - connection limit [${connectionPoolLimit}] reached, waiting for a free connection` ); 
             // set the flag to indicate that we are waiting for a free connection
             waitingFreeConnection = true;
             return; 
@@ -473,7 +544,7 @@ function checkRequestQueue(){
         // already being opened, and the result is still pending?
         if (bConnectionPending) { 
             // Waiting for the connection to open so nothing we can do
-            verbLog( '<< checkRequestQueue - Connection still pending..') ; 
+            verbLog( '<<checkRequestQueue - Connection still pending..') ; 
             return;
         }
 
@@ -490,13 +561,14 @@ function checkRequestQueue(){
     // There are outstanding requests that need a connection, and at least one connection is free
     waitingFreeConnection = false;
     
-    // Get the first free connection
+    // Get the first free connection from the pool
     let xcnx = connectionPool.shift();
 
-    // Check if there has been an external request for a free connection to this database
-    if( connectionRequestQueue.length > 0 ){
-        // If so, we hand over the free connection to the callback
+    // Check if there are any queued external requests
+    // for a connection to this database.
+    if( CXRQL > 0 ){
 
+        // If so, we hand over the free connection to the callback
         verbLog( "Handing over free connection to callback");
 
         // Get the connection request callback function
@@ -519,20 +591,27 @@ function checkRequestQueue(){
         xcnx.execSql( req );
     };
 
-    // Now check if there are still and items in either request queue, and if so schedule another call to this function
-    if( requestQueue.length > 0 || connectionRequestQueue.length > 0 ) { setImmediate( checkRequestQueue ) } ;
+    CXRQL = connectionRequestQueue.length;
+    RQL = requestQueue.length;
+    CPL = connectionPool.length;
+
+    // Now check if there are still any items in either
+    // request queue, and if so schedule another call
+    // to this function
+    if( RQL > 0 || CXRQL > 0 ) { setImmediate( checkRequestQueue ) } ;
 
     // Our job is done, so we can exit
 
-    verbLog(`<<checkRequestQueue - CXQ length=[${connectionRequestQueue.length}], RQ length=[${requestQueue.length}], CP length=[${connectionPool.length}]`);
+    verbLog(`<<checkRequestQueue - CXQ length=[${CXRQL}], RQ length=[${RQL}], CP length=[${CPL}]`);
 
     return;
 
 }
 
 /**
- * This function registers a callback to be executed when some system event occurs. Possible events are
- * ready, error, and disconnect.
+ * This function registers a callback to be executed
+ * when some system event occurs. Possible events are:
+ *      ready, error, and disconnect.
  * @param {*} event 
  * @param {*} callback 
  */
@@ -557,6 +636,7 @@ function onEvent( event, callback ){
 
     verbLog(`<<onEvent`);
 }
+
 
 /**
  * This function registers a callback to be executed whenever a data set with a specific data set
@@ -663,7 +743,7 @@ function log( xModuleName, ...args ){
 }
 
 
-// ========================================================================================== dts
+// ========================================================================================== ddd
 function hhmmss( ddd ){ 
     if( !ddd ) ddd = new Date();
     return ddd.toISOString().substr(11,8);
@@ -676,7 +756,7 @@ function hhmmss( ddd ){
      * Objects are cloned to a depth by using the function recursively. 
      * There is a limit of 10 on the depth of recursion although this can be increased by passing a higher 
      * number as maxDepth parameter. 
-     * Members of the object may be excluding by providing a regexp that matches the pattern(s) of the 
+     * Members of the object may be excluded by providing a regexp that matches the pattern(s) of the 
      * key(s) to be excluded, or a string that matches a the keys exactly (case-sensitive).
      * Any key that begins or ends in underscore _ is not cloned and is excluded from the cloned object.
      * @param {*} pObject 
@@ -708,7 +788,7 @@ function hhmmss( ddd ){
             // Check each item in the array, using simpleClone recursively
             pObject.forEach( item=>{
                 let xo = simpleClone( item, excludeKey, maxDepth, currentDepth+1 );
-                // Even f the returned item is null, push it ( to preserve indexing )
+                // Even if the returned item is null, push it ( to preserve indexing )
                 newA.push( xo );
             })
 
@@ -720,7 +800,7 @@ function hhmmss( ddd ){
         if ( typeof pObject == "object" ){
             
             // If this object is too deep in the hierarchy, then return a placeholder only, (for information)
-            if( currentDepth > maxDepth ) return `[OBJECT NESTING TOO DEEP, Max depth is ${maxDepth}]`;
+            if( currentDepth > maxDepth ) return `[OBJECT NESTING TOO DEEP, Max depth is ${maxDepth}]` ;
 
             // New empty object
             let newO = {};
@@ -758,9 +838,10 @@ function hhmmss( ddd ){
                 if( typeof po == "object" || Array.isArray( po ) ) { 
                         // Notice how we increment the depth
                         let xo = simpleClone ( po, excludeKey, maxDepth, currentDepth+1 ) 
-                        // Check that something was returned from the clone
-                        if( xo ) newO[K] = xo;
                         // If nothing was returned, then do not set anything on the clone
+                        if( !xo ) return;
+                        // Check that something was returned from the clone
+                        newO[K] = xo;
                         return;
                     } 
                 // Whatever it is, just set it on the new object;
@@ -913,3 +994,11 @@ function sqlExecProc(){
 function basicExecProc(){
 
 }
+
+
+
+/** ================================================= emptyFunction
+ */
+function emptyFunction(){ return; };
+// ==================================================
+

@@ -43,8 +43,14 @@ ___
 #### NOTES ON V2 
 ##### Error handling
     Major changes to error handling mean that the signature for the callback passed to execSql() has changed. Now there is a single return object which includes all the recordsets and all the errors under the key _errors_. So to test for errors in the returned results, check for _recordsets.errors_. More than one error may be returned in _.errors_ from a single call to execSql(). 
+
+#### V2.0.6 Runner interface API
+    Introduced a "runner" object that uses EventEmitter event handling to send out datasets that have been returned from a SQL script. The script is submitted to the runner and may generate any number of named datasets using the usual Setedious conventions. Events are raised corresponding to the names of the datasets. A final event "done" is raised when the SQL script is finished after all dataset event have been raised. 
+    
+    The runner object can be used multiple times, preserving all the previously registered event handlers each time that the SQL script is run.
+
 ___    
-## installation
+## Installation
 Node.js is a prerequisite of setedious. To install setedious in a project use:
 
     > npm install setedious

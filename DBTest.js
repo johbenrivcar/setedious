@@ -22,17 +22,23 @@ setedious.connect( {
                 type: "default"
                 , options: { 
                     userName: "CrosswordDB_RW"
-                    , password: "2390asdfoiadlzxjbhkxjxhiausdkfajslvx8"
+                    , password: "abcdefgh"
                 }
             }
             , options: {
-                database: "CrosswordDB"
+                database: "TigerDB"
                 , "trustServerCertificate": true
             }
         }
     }
 )
     
+
+setedious.onDataset( "DAT", function( set  ){
+    let ds = set.dates ;
+    log( `<DAT> set returned with ${ds.length} rows`)
+    log( set.setName, ds ) ;
+})
 
 setedious.onDataset( "ssm", function( set  ){
     let ds = set.ssm;
@@ -86,9 +92,10 @@ function runTest(){
 
     //     log( "SPPARAMS FOR getPerson", err, ds )
     // })
-    var sql1 ;
 
-    sql1 = " SELECT TOP(3) 'PSN' setName, PSN.* FROM vPSN_Person PSN ORDER BY PSN.Name ; "
+    var sql1 ; 
+
+    sql1 = " SELECT TOP(30) 'DAT' setName, DAT.* FROM DAT_dates DAT ORDER BY DAT.DaySerial ; "
 
     setedious.execSql( sql1, 
         function( data ){
@@ -104,6 +111,7 @@ function runTest(){
 
     );
 
+    /*
     var sql2;
     sql2 = [ ` EXEC getPerson @PersonUID='123456789012345' ;`
             ," EXEC GetSpParams @SPName='getPerson' ; " ]
@@ -139,8 +147,8 @@ function runTest(){
 
     );
 
+*/
 }
-
 
 
 runTest();
