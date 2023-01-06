@@ -37,7 +37,9 @@ Errors are also returned as a data set named **errors**, with each row in the se
 ``` javascript    
         setedious.onDataset( datasetName, callback );
 ```
-    *The callback receives an object containing the a dataset whenever that named dataset is returned by any submitted SQL statement.*
+    // The callback receives an object containing the a 
+    // dataset whenever that named dataset is returned by 
+    // any submitted SQL statement.*
 
 ___
 #### NOTES ON V2 
