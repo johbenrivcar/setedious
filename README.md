@@ -11,9 +11,9 @@ Execution of the SQL is asnychronous. The recordsets returned from a SQL call ca
 
 * If using a callback, this is called once only, and all the recordsets returned from the SQL call are handed back in this single call, once all of the SQL execution is complete.
 
-* If using data set monitors, which are keyed on data set name, these are called separately _for each dataset_ whenever that data set is returned _from any subsequent call to execSql(). Once registered, the data set monitor remains active and will be called asynchronously whenever a dataset with the registered name returned from a SQL statement.
+* If using data set monitors, which are keyed on data set name, these are called separately _for each dataset_ whenever that data set is returned _from any subsequent call to execSql(). Once registered, the data set monitor remains active and will be called asynchronously whenever a dataset with a name matching the registered name is returned from an execSql call.
 
-* You can use a mixture of callbacks on specific execSQL calls and data set monitors which apply to all execSQL calls. During execution of an execSql() call with a callback function, any returned data set with a name matching a data set monitor will be delivered separately to the monitor before being delivered to the callback with all the other data sets.
+* You can use a mixture of callbacks on specific execSQL calls and data set monitors. During execution of an execSql() call with a callback function, any returned data set with a name matching a data set monitor will be delivered separately to the monitor before being delivered to the callback with all the other data sets.
 
 Errors are also returned as a data set named **errors**, with each row in the set being a single reported error. The sequence of errors is the order in which errors were encountered, not order of severity.
 **The SQL code or any stored procedure can add error lines to the errors data set simply by returning one or more data sets with the name "errors".
