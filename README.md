@@ -23,7 +23,6 @@ Errors are also returned as a data set named **errors**, with each row in the se
 ``` javascript    
         setedious.execSql( sqlStatement, callback );
 ```
-
     *The callback receives a single object containing all the recordsets created by the SQL statement, including all recordsets returned by stored procedure calls.*
 
 * Submission of array of SQL statements to be executed in sequence, with a callback:
