@@ -23,27 +23,33 @@ SQL errors are also returned as a data set named **errors**, with each row in th
 ``` javascript    
         setedious.execSql( sqlStatement, callback );
 ```
-    *The callback receives a single object containing all the recordsets created by the SQL statement, including all recordsets returned by stored procedure calls.*
+The callback receives a single object containing all the recordsets created by the SQL statement, including all recordsets returned by stored procedure calls.*
 
 * Submission of array of SQL statements to be executed in sequence, with a callback:
 ``` javascript    
     setedious.execSql( [sqlStatement, ..], callback );
 ```
-    *The callback receives a single object containing all the recordsets created by each SQL statement separately. 
-    *Each statement in the array is guaranteed to finish before the next one is executed.
+   The callback receives a single object containing all the recordsets created by all the SQL statements. 
+   Each statement in the array is guaranteed to finish before the next one is executed.
+   The returned datasets are collected, and delivered to the callback after all SQL statements have completed.
 
 * Events to catch recordsets with specific names whenever returned
 ``` javascript    
         setedious.onDataset( datasetName, callback );
 ```
-    // The callback receives an object containing the a 
-    // dataset whenever that named dataset is returned by 
-    // any submitted SQL statement.*
+The callback receives an object containing the a 
+dataset whenever that named dataset is returned by 
+any submitted SQL statement.*
 
 ___
 #### NOTES ON V2 
 ##### Error handling
-    Major changes to error handling mean that the signature for the callback passed to execSql() has changed. Now there is a single return object which includes all the recordsets and all the errors under the key _errors_. So to test for errors in the returned results, check for _recordsets.errors_. More than one error may be returned in _.errors_ from a single call to execSql(). 
+Major changes to error handling mean that the signature for the callback passed to execSql() has changed. 
+* Now, there is a single return object which includes all the recordsets and all the errors under the key _errors_. 
+* So, to test for errors in the returned results, check for _recordsets.errors_. 
+* More than one error may be returned in _.errors_ from a single call to execSql(). 
+* The SQL statements themselves may include statements that return datasets with the column **setName** set to "errors_". 
+* Such user-defined errors will be mixed with any SQL-generated errors in the same returned dataset.
 ___    
 ## installation
 Node.js is a prerequisite of setedious. To install setedious in a project use:
