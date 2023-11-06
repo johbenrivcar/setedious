@@ -1,7 +1,7 @@
 # setedious
 
 A wrapper for [tedious] that returns named data sets 
-from multiple SQL Selects, or SP calls. 
+from multiple SQL Selects or SP calls. 
 The primary objective of the module is to simplify handling
 of returning multiple recordsets from a single SQL call.
 
@@ -15,7 +15,7 @@ Execution of the SQL is asnychronous. The recordsets returned from a SQL call ca
 
 * You can use a mixture of callbacks on specific execSQL calls and data set monitors. During execution of an execSql() call with a callback function, any returned data set with a name matching a data set monitor will be delivered separately to the monitor before being delivered to the callback with all the other data sets.
 
-Errors are also returned as a data set named **errors**, with each row in the set being a single reported error. The sequence of errors is the order in which errors were encountered, not order of severity.
+SQL errors are also returned as a data set named **errors**, with each row in the set being a single reported error. The sequence of errors is the order in which errors were encountered, not order of severity.
 **The SQL code or any stored procedure can add error lines to the errors data set simply by returning one or more data sets with the name "errors".
 
 ### Basic features
@@ -65,7 +65,7 @@ setedious has a dependency on *tedious* which will also be installed if required
     });
 ```
 
-The above handler will be called whenever any sql statement submitted to setedious returns a dataset named "orders". _Note that all data set names are case-insensitive and are converted to lower case before being returned._
+The above handler will be called asynchronously whenever any sql statement submitted to setedious returns a dataset named "orders". _Note that all data set names are case-insensitive and are converted to lower case before being returned._
 
 ```javascript
     // Define the SQL statement to be run
@@ -86,9 +86,10 @@ The above SQL statement will return two recordsets, named "orders" and "customer
     
 The above js statement will execute the SQL, and return the recordsets back to the callback. _By convention_ if an error has occurred in execution of the SQL, then a dataset "errors" is included in the returned recordsets.
 
-* Note that there may be both an _errors_ data set and also other recordsets returned as a result of a single call.
-* Note that SQL errors such as invalid syntax will be returned in the _errors_ dataset, **not** by a thrown error.
-* Note that multiple errors may be returned as the result of a single call, in which case the _errors_ data set will contain multiple rows.
+* Important notes
+** There may be both an _errors_ data set and also other recordsets returned as a result of a single call.
+** SQL errors such as invalid syntax will be returned in the _errors_ dataset, **not** by a thrown error.
+** Multiple errors may be returned as the result of a single call to execSQL, in which case the _errors_ data set will contain multiple rows.
 
 ### setName column in SQL statements
 To correctly allocate returned data rows to a named dataSet, the first column of all records in a result set must be named **setName** and be set to the string name of the dataset:
